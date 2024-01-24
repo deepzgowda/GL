@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create an AWS CloudFormation stack with an ElastiCache Redis cluster
+Description: Create an AWS ElastiCache Redis cluster with a specified node type
 
 Parameters:
   ClusterName:
@@ -24,7 +24,6 @@ Resources:
       NumCacheNodes: 1
       Port: 6379
       AutoMinorVersionUpgrade: true
-      AZMode: single
       CacheSecurityGroupNames:
         - !Ref CacheSecurityGroupName
 

@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an SQS Queue with Dead Letter Queue
+
+Parameters:
+  QueueName:
+    Type: String
+    Description: Name for the main SQS queue
+    Default: MySQSQueue
+
+  DLQName:
+    Type: String
+    Description: Name for the Dead Letter Queue
+    Default: MyDLQ
+
+Resources:
+  MySQSQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref QueueName
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt: [MyDLQ, Arn]
+        maxReceiveCount: 5  # Adjust the maximum receive count as needed
+
+  MyDLQ:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref DLQName
+
+Outputs:
+  SQSQueueUrl:
+    Description: URL of the main SQS queue
+    Value: !GetAtt MySQSQueue.QueueUrl
+
+  DLQUrl:
+    Description: URL of the Dead Letter Queue
+    Value: !GetAtt MyDLQ.QueueUrl

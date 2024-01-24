@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an AWS ElastiCache Redis cluster with a specified node type
+
+Parameters:
+  ClusterName:
+    Type: String
+    Description: Name for the ElastiCache cluster
+    Default: MyRedisCluster
+
+  NodeType:
+    Type: String
+    Description: Redis node type 
+    Default: cache.t2.micro
+
+Resources:
+  RedisCluster:
+    Type: 'AWS::ElastiCache::CacheCluster'
+    Properties:
+      CacheNodeType: !Ref NodeType
+      ClusterName: !Ref ClusterName
+      Engine: redis
+      NumCacheNodes: 1
+      Port: 6379
+      AutoMinorVersionUpgrade: true
+      AZMode: single
+
+Outputs:
+  RedisEndpoint:
+    Description: Endpoint of the Redis cluster
+    Value: !GetAtt RedisCluster.ConfigurationEndpoint.Address

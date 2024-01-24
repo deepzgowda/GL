@@ -1,16 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create an AWS ElastiCache Redis cluster with a specified node type
+Description: Create an AWS CloudFormation stack with an ElastiCache Redis cluster
 
 Parameters:
   ClusterName:
     Type: String
-    Description: Name for the ElastiCache cluster
     Default: MyRedisCluster
 
   NodeType:
     Type: String
-    Description: Redis node type 
     Default: cache.t2.micro
+
+  CacheSecurityGroupName:
+    Type: String
+    Default: MyCacheSecurityGroup
 
 Resources:
   RedisCluster:
@@ -23,6 +25,8 @@ Resources:
       Port: 6379
       AutoMinorVersionUpgrade: true
       AZMode: single
+      CacheSecurityGroupNames:
+        - !Ref CacheSecurityGroupName
 
 Outputs:
   RedisEndpoint:

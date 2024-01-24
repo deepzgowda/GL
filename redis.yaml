@@ -10,10 +10,6 @@ Parameters:
     Type: String
     Default: cache.t2.micro
 
-  CacheSecurityGroupName:
-    Type: String
-    Default: MyCacheSecurityGroup
-
 Resources:
   RedisCluster:
     Type: 'AWS::ElastiCache::CacheCluster'
@@ -24,8 +20,6 @@ Resources:
       NumCacheNodes: 1
       Port: 6379
       AutoMinorVersionUpgrade: true
-      CacheSecurityGroupNames:
-        - !Ref CacheSecurityGroupName
 
 Outputs:
   RedisEndpoint:

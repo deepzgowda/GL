@@ -34,7 +34,7 @@ Resources:
       Port: 6379
       AutoMinorVersionUpgrade: true
       VpcSecurityGroupIds:
-        - !Ref RedisSecurityGroup
+        - !GetAtt RedisSecurityGroup.GroupId  # Use GetAtt to get the Security Group ID
 
 Outputs:
   RedisEndpoint:

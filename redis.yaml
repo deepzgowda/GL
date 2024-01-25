@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create an AWS ElastiCache Redis cluster with a specified node type
+Description: Create an AWS ElastiCache Redis cluster with a specified node type and allow all traffic in the security group
 
 Parameters:
   ClusterName:
@@ -20,6 +20,16 @@ Resources:
       NumCacheNodes: 1
       Port: 6379
       AutoMinorVersionUpgrade: true
+      CacheSecurityGroupNames:
+        - !Ref RedisSecurityGroup
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Redis cluster
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1  
 
 Outputs:
   RedisEndpoint:

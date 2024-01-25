@@ -11,6 +11,14 @@ Parameters:
     Default: cache.t2.micro
 
 Resources:
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Redis cluster
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1  
+
   RedisCluster:
     Type: 'AWS::ElastiCache::CacheCluster'
     Properties:
@@ -20,16 +28,8 @@ Resources:
       NumCacheNodes: 1
       Port: 6379
       AutoMinorVersionUpgrade: true
-      CacheSecurityGroupNames:
+      VpcSecurityGroupIds:
         - !Ref RedisSecurityGroup
-
-  RedisSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for Redis cluster
-      SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: -1  
 
 Outputs:
   RedisEndpoint:

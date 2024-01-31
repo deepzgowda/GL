@@ -31,7 +31,7 @@ Resources:
       Family: myEcsTask
       ContainerDefinitions:
         - Name: myContainer
-          Memory: 512  # Set the initial memory for the container
+          Memory: 512
           Image: your-docker-image
   Service:
     Type: AWS::ECS::Service
@@ -52,20 +52,20 @@ Resources:
   LaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      ImageId: ami-12345678  # Specify a valid AMI ID
-      InstanceType: t2.micro  # Specify your desired instance type
+      ImageId: ami-12345678
+      InstanceType: t2.micro
       KeyName: !Ref KeyName
       UserData:
         Fn::Base64: |
           #!/bin/bash
           echo ECS_CLUSTER=MyCluster >> /etc/ecs/ecs.config
       SecurityGroups:
-        - sg-12345678  # Specify your security group ID
-      IamInstanceProfile: ecsInstanceRole  # Specify your IAM instance profile
+        - sg-12345678
+      IamInstanceProfile: ecsInstanceRole
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 30  # Specify your desired root volume size
+            VolumeSize: 30
   ScalingPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:

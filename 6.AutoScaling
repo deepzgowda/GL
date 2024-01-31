@@ -1,93 +1,87 @@
-AWSTemplateFormatVersion: "2010-09-09"
-
+AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
-  Subnet1Id:
-    Type: String
-    Description: "ID of the first subnet for the Auto Scaling group"
-  Subnet2Id:
-    Type: String
-    Description: "ID of the second subnet for the Auto Scaling group"
-  AmiId:
-    Type: String
-    Description: "ID of the EC2 AMI for the launch configuration"
   InstanceType:
     Type: String
-    Description: "Type of EC2 instance for the launch configuration"
-  SecurityGroupId:
-    Type: String
-    Description: "ID of the security group for the launch configuration"
-
+    Description: EC2 instance type for the Auto Scaling Group
+    Default: t2.micro
+  MinSize:
+    Type: Number
+    Description: Minimum number of instances in the Auto Scaling Group
+    Default: 1
+  MaxSize:
+    Type: Number
+    Description: Maximum number of instances in the Auto Scaling Group
+    Default: 3
+  DesiredCapacity:
+    Type: Number
+    Description: Initial desired number of instances in the Auto Scaling Group
+    Default: 1
 Resources:
-  MyAutoScalingGroup:
-    Type: "AWS::AutoScaling::AutoScalingGroup"
+  AutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
-      DesiredCapacity: 2
-      MinSize: 2
-      MaxSize: 5
+      AutoScalingGroupName: MyAutoScalingGroup
       LaunchConfigurationName:
-        Ref: "MyLaunchConfig"
-      VPCZoneIdentifier:
-        - !Ref Subnet1Id
-        - !Ref Subnet2Id
-
-  MyLaunchConfig:
-    Type: "AWS::AutoScaling::LaunchConfiguration"
+        Ref: LaunchConfig
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      Tags:
+        - Key: Name
+          Value: MyInstance
+          PropagateAtLaunch: 'true'
+      VPCZoneIdentifier: []
+  LaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:
-      ImageId: !Ref AmiId
+      ImageId: ami-089b3acddcb447852
       InstanceType: !Ref InstanceType
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # Install and configure CloudWatch agent
-          yum install -y amazon-cloudwatch-agent
-          
-          # Configure CloudWatch agent
-          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-          {
-            "metrics": {
-              "append_dimensions": {
-                "InstanceId": "\${aws:InstanceId}"
-              },
-              "metrics_collected": {
-                "mem": {
-                  "measurement": [
-                    "mem_used_percent"
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-          
-          # Start and enable CloudWatch agent
-          systemctl start amazon-cloudwatch-agent
-          systemctl enable amazon-cloudwatch-agent
-
       SecurityGroups:
-        - !Ref SecurityGroupId
-
-  MyMemoryAlarm:
-    Type: "AWS::CloudWatch::Alarm"
+        - sg-0ec615305d9e4e436
+  MemoryHighAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
     Properties:
-      AlarmDescription: "Scale up when memory utilization is high"
-      Namespace: "CWAgent"
-      MetricName: "mem_used_percent"
-      Dimensions:
-        - Name: "InstanceId"
-          Value: !Ref "MyAutoScalingGroup"
-      ComparisonOperator: "GreaterThanThreshold"
-      EvaluationPeriods: 2
+      AlarmName: MemoryHighAlarm
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: MemoryUtilization
+      Namespace: AWS/EC2
       Period: 300
-      Statistic: "Average"
-      Threshold: 80  # Adjust the threshold as needed
+      Statistic: Average
+      Threshold: 90
+      ActionsEnabled: true
       AlarmActions:
-        - Ref: "MyScaleUpPolicy"
-
-  MyScaleUpPolicy:
-    Type: "AWS::AutoScaling::ScalingPolicy"
+        - Ref: ScaleUpPolicy
+  MemoryLowAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
     Properties:
-      AdjustmentType: "ChangeInCapacity"
+      AlarmName: MemoryLowAlarm
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: MemoryUtilization
+      Namespace: AWS/EC2
+      Period: 300
+      Statistic: Average
+      Threshold: 70
+      ActionsEnabled: true
+      AlarmActions:
+        - Ref: ScaleDownPolicy
+  ScaleUpPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
       AutoScalingGroupName:
-        Ref: "MyAutoScalingGroup"
+        Ref: AutoScalingGroup
       Cooldown: 300
       ScalingAdjustment: 1
+  ScaleDownPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName:
+        Ref: AutoScalingGroup
+      Cooldown: 300
+      ScalingAdjustment: -1

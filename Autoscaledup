@@ -1,82 +1,90 @@
 AWSTemplateFormatVersion: "2010-09-09"
+
 Parameters:
-  KeyName:
+  Subnet1Id:
     Type: String
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC Id
-  SubnetId:
-    Type: AWS::EC2::Subnet::Id
-    Description: Subnet Id
-  DesiredCapacity:
-    Type: Number
-    Description: Desired capacity of the Auto Scaling Group
-  MaxCapacity:
-    Type: Number
-    Description: Maximum capacity of the Auto Scaling Group
-  MinCapacity:
-    Type: Number
-    Description: Minimum capacity of the Auto Scaling Group
-  MemoryThreshold:
-    Type: Number
-    Description: Memory threshold for scaling in/out
-    Default: 75
+    Description: "ID of the first subnet for the Auto Scaling group"
+  Subnet2Id:
+    Type: String
+    Description: "ID of the second subnet for the Auto Scaling group"
+  AmiId:
+    Type: String
+    Description: "ID of the EC2 AMI for the launch configuration"
+  InstanceType:
+    Type: String
+    Description: "Type of EC2 instance for the launch configuration"
+  SecurityGroupId:
+    Type: String
+    Description: "ID of the security group for the launch configuration"
+
 Resources:
-  Cluster:
-    Type: AWS::ECS::Cluster
-  TaskDefinition:
-    Type: AWS::ECS::TaskDefinition
+  MyAutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
     Properties:
-      Family: myEcsTask
-      ContainerDefinitions:
-        - Name: myContainer
-          Memory: 512
-          Image: your-docker-image
-  Service:
-    Type: AWS::ECS::Service
-    DependsOn: TaskDefinition
-    Properties:
-      Cluster: !Ref Cluster
-      TaskDefinition: !Ref TaskDefinition
-      DesiredCount: 1
-  AutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      VPCZoneIdentifier: [!Ref SubnetId]
+      DesiredCapacity: 2
+      MinSize: 2
+      MaxSize: 5
       LaunchConfigurationName:
-        Ref: LaunchConfig
-      MinSize: !Ref MinCapacity
-      MaxSize: !Ref MaxCapacity
-      DesiredCapacity: !Ref DesiredCapacity
-  LaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
+        Ref: "MyLaunchConfig"
+      VPCZoneIdentifier:
+        - !Ref Subnet1Id
+        - !Ref Subnet2Id
+
+  MyLaunchConfig:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
     Properties:
-      ImageId: ami-12345678
-      InstanceType: t2.micro
-      KeyName: !Ref KeyName
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
       UserData:
-        Fn::Base64: |
+        Fn::Base64: !Sub |
           #!/bin/bash
-          echo ECS_CLUSTER=MyCluster >> /etc/ecs/ecs.config
+          yum install -y amazon-cloudwatch-agent
+          
+          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+          {
+            "metrics": {
+              "append_dimensions": {
+                "InstanceId": "\${aws:InstanceId}"
+              },
+              "metrics_collected": {
+                "mem": {
+                  "measurement": [
+                    "mem_used_percent"
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+          
+          systemctl start amazon-cloudwatch-agent
+          systemctl enable amazon-cloudwatch-agent
+
       SecurityGroups:
-        - sg-12345678
-      IamInstanceProfile: ecsInstanceRole
-      BlockDeviceMappings:
-        - DeviceName: /dev/xvda
-          Ebs:
-            VolumeSize: 30
-  ScalingPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
+        - !Ref SecurityGroupId
+
+  MyMemoryAlarm:
+    Type: "AWS::CloudWatch::Alarm"
     Properties:
+      AlarmDescription: "Scale up when memory utilization is high"
+      Namespace: "CWAgent"
+      MetricName: "mem_used_percent"
+      Dimensions:
+        - Name: "InstanceId"
+          Value: !Ref "MyAutoScalingGroup"
+      ComparisonOperator: "GreaterThanThreshold"
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: "Average"
+      Threshold: 80  # Adjust the threshold as needed
+      AlarmActions:
+        - Ref: "MyScaleUpPolicy"
+
+  MyScaleUpPolicy:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: "ChangeInCapacity"
       AutoScalingGroupName:
-        Ref: AutoScalingGroup
-      AdjustmentType: ChangeInCapacity
+        Ref: "MyAutoScalingGroup"
       Cooldown: 300
       ScalingAdjustment: 1
-      MetricAggregationType: Average
-      EstimatedInstanceWarmup: 300
-      TargetTrackingConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageMemoryUtilization
-        TargetValue: !Ref MemoryThreshold

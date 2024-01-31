@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  InstanceId:
+    Type: String
+    Description: ID of the EC2 instance to monitor
+    Default: "i-0624da22598bac012"  
+
+Resources:
+  CPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "CPUUtilizationAlarm"
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/EC2"
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref CPUMetricTopic
+      Dimensions:
+        - Name: "InstanceId"
+          Value: !Ref InstanceId
+
+  MemoryUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "MemoryUtilizationAlarm"
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: "MemoryUtilization"
+      Namespace: "System/Linux"
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref MemoryMetricTopic
+      Dimensions:
+        - Name: "InstanceId"
+          Value: !Ref InstanceId
+
+  DiskSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "DiskSpaceAlarm"
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: "DiskSpaceUtilization"
+      Namespace: "System/Linux"
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref DiskSpaceMetricTopic
+      Dimensions:
+        - Name: "InstanceId"
+          Value: !Ref InstanceId
+
+  CPUMetricTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "CPUMetricTopic"
+      TopicName: "CPUMetricTopic"
+
+  MemoryMetricTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "MemoryMetricTopic"
+      TopicName: "MemoryMetricTopic"
+
+  DiskSpaceMetricTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "DiskSpaceMetricTopic"
+      TopicName: "DiskSpaceMetricTopic"

@@ -30,7 +30,8 @@ Resources:
         - Key: Name
           Value: MyInstance
           PropagateAtLaunch: 'true'
-      VPCZoneIdentifier: []
+      VPCZoneIdentifier:
+        - subnet-0576e87bf6d0490d8
   LaunchConfig:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:

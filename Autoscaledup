@@ -36,27 +36,13 @@ Resources:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
       UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum install -y amazon-cloudwatch-agent
-          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-          {
-            "metrics": {
-              "append_dimensions": {
-                "InstanceId": "\${aws:InstanceId}"
-              },
-              "metrics_collected": {
-                "mem": {
-                  "measurement": [
-                    "mem_used_percent"
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-          systemctl start amazon-cloudwatch-agent
-          systemctl enable amazon-cloudwatch-agent
+        Fn::Base64: 
+          Fn::Sub: |
+            #!/bin/bash
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            sed -i "s/INSTANCE_ID/$INSTANCE_ID/" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            systemctl start amazon-cloudwatch-agent
+            systemctl enable amazon-cloudwatch-agent
 
       SecurityGroups:
         - !Ref SecurityGroupId
@@ -74,7 +60,7 @@ Resources:
       EvaluationPeriods: 2
       Period: 300
       Statistic: "Average"
-      Threshold: 80  # Adjust the threshold as needed
+      Threshold: 80  
       AlarmActions:
         - Ref: "MyScaleUpPolicy"
 

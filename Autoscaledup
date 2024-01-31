@@ -1,124 +1,69 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "ECS Auto Scaling based on Memory CloudFormation Template"
-
 Parameters:
   ClusterName:
     Type: String
-    Description: "Name of the ECS cluster"
-
-  DesiredCapacity:
-    Type: Number
-    Description: "Desired number of EC2 instances in the Auto Scaling Group"
-    Default: 2
-
-  MaxCapacity:
-    Type: Number
-    Description: "Maximum number of EC2 instances in the Auto Scaling Group"
-    Default: 4
-
+    Description: Name of the ECS cluster
+  ServiceName:
+    Type: String
+    Description: Name of the ECS service
   MinCapacity:
     Type: Number
-    Description: "Minimum number of EC2 instances in the Auto Scaling Group"
+    Description: Minimum number of instances
     Default: 1
-
-  MemoryThreshold:
+  MaxCapacity:
     Type: Number
-    Description: "Memory threshold percentage to trigger scaling (e.g., 80 for 80%)"
-    Default: 80
-
-  VPCId:
-    Type: "AWS::EC2::VPC::Id"
-    Description: "VPC ID where ECS instances will be launched"
-
-  ECSSubnetIds:
-    Type: "List<AWS::EC2::Subnet::Id>"
-    Description: "Subnet IDs for ECS instances"
+    Description: Maximum number of instances
+    Default: 5
+  DesiredCapacity:
+    Type: Number
+    Description: Desired number of instances
+    Default: 2
+  TargetMemoryUtilization:
+    Type: Number
+    Description: Target memory utilization percentage for scaling
+    Default: 70
 
 Resources:
   ECSAutoScalingGroup:
     Type: "AWS::AutoScaling::AutoScalingGroup"
     Properties:
-      AutoScalingGroupName: !Sub "${AWS::StackName}-AutoScalingGroup"
-      DesiredCapacity: !Ref DesiredCapacity
-      MaxSize: !Ref MaxCapacity
+      AutoScalingGroupName: !Sub "${ServiceName}-ASG"
       MinSize: !Ref MinCapacity
-      VPCZoneIdentifier: !Ref ECSSubnetIds
-      LaunchConfigurationName: !Ref EC2LaunchConfig
-      Tags:
-        - Key: "Name"
-          Value: !Sub "${AWS::StackName}-EC2Instance"
-          PropagateAtLaunch: true
+      MaxSize: !Ref MaxCapacity
+      DesiredCapacity: !Ref DesiredCapacity
+      VPCZoneIdentifier:
+        Fn::ImportValue: !Sub "${ClusterName}-VPCZoneIds"
+      LaunchTemplate:
+        LaunchTemplateName: !Ref EC2LaunchTemplate
 
-  EC2LaunchConfig:
-    Type: "AWS::AutoScaling::LaunchConfiguration"
+  EC2LaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
     Properties:
-      ImageId: "ami-xxxxxxxxxxxxxxxxx" # Specify your ECS optimized AMI ID
-      InstanceType: "t2.micro" # Choose an appropriate instance type
-      IamInstanceProfile: !Ref EC2InstanceProfile
-      UserData: !Base64 |
-        #!/bin/bash
-        echo ECS_CLUSTER=${ClusterName} >> /etc/ecs/ecs.config
-      SecurityGroups:
-        - !Ref EC2SecurityGroup
-      KeyName: "YourKeyPair" # Specify your key pair
-      BlockDeviceMappings:
-        - DeviceName: "/dev/xvda"
-          Ebs:
-            VolumeSize: 30
+      LaunchTemplateName: !Sub "${ServiceName}-LaunchTemplate"
+      VersionDescription: "Initial version"
+      LaunchTemplateData:
+        ImageId: "ami-xxxxxxxxxxxxxxxxx"  # Replace with your AMI ID
+        InstanceType: "t2.micro"  # Replace with your instance type
+        SecurityGroupIds:
+          - Fn::ImportValue: !Sub "${ClusterName}-SecurityGroupIds"
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${ClusterName} >> /etc/ecs/ecs.config
 
-  EC2InstanceProfile:
-    Type: "AWS::IAM::InstanceProfile"
+  ECSAutoScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
     Properties:
-      Roles:
-        - !Ref EC2Role
-
-  EC2Role:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service: "ec2.amazonaws.com"
-            Action: "sts:AssumeRole"
-      Policies:
-        - PolicyName: "ecs-autoscaling-policy"
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: "Allow"
-                Action:
-                  - "ecs:UpdateService"
-                  - "ecs:DescribeServices"
-                Resource: "*"
-
-  EC2SecurityGroup:
-    Type: "AWS::EC2::SecurityGroup"
-    Properties:
-      GroupDescription: "Allow inbound traffic to ECS instances"
-      VpcId: !Ref VPCId
-      SecurityGroupIngress:
-        - IpProtocol: "tcp"
-          FromPort: 32768
-          ToPort: 65535
-          SourceSecurityGroupId: !Ref EC2SecurityGroup
-        - IpProtocol: "udp"
-          FromPort: 32768
-          ToPort: 65535
-          SourceSecurityGroupId: !Ref EC2SecurityGroup
-
-  MemoryHighScalingPolicy:
-    Type: "AWS::AutoScaling::ScalingPolicy"
-    Properties:
-      AutoScalingGroupName: !Ref ECSAutoScalingGroup
+      PolicyName: !Sub "${ServiceName}-ScalingPolicy"
+      ScalingTargetId: !Sub "service/${ClusterName}/${ServiceName}"
       PolicyType: "TargetTrackingScaling"
-      TargetTrackingConfiguration:
+      TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
-          PredefinedMetricType: "ASGAverageNetworkIn"
-        TargetValue: !Ref MemoryThreshold
+          PredefinedMetricType: "ECSServiceAverageMemoryUtilization"
+        TargetValue: !Ref TargetMemoryUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
 
 Outputs:
-  ECSAutoScalingGroup:
-    Description: "ECS Auto Scaling Group Name"
+  AutoScalingGroupName:
     Value: !Ref ECSAutoScalingGroup

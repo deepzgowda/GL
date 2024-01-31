@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  KeyName:
+    Type: String
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet Id
+  DesiredCapacity:
+    Type: Number
+    Description: Desired capacity of the Auto Scaling Group
+  MaxCapacity:
+    Type: Number
+    Description: Maximum capacity of the Auto Scaling Group
+  MinCapacity:
+    Type: Number
+    Description: Minimum capacity of the Auto Scaling Group
+  MemoryThreshold:
+    Type: Number
+    Description: Memory threshold for scaling in/out
+    Default: 75
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: myEcsTask
+      ContainerDefinitions:
+        - Name: myContainer
+          Memory: 512  # Set the initial memory for the container
+          Image: your-docker-image
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: TaskDefinition
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: [!Ref SubnetId]
+      LaunchConfigurationName:
+        Ref: LaunchConfig
+      MinSize: !Ref MinCapacity
+      MaxSize: !Ref MaxCapacity
+      DesiredCapacity: !Ref DesiredCapacity
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-12345678  # Specify a valid AMI ID
+      InstanceType: t2.micro  # Specify your desired instance type
+      KeyName: !Ref KeyName
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo ECS_CLUSTER=MyCluster >> /etc/ecs/ecs.config
+      SecurityGroups:
+        - sg-12345678  # Specify your security group ID
+      IamInstanceProfile: ecsInstanceRole  # Specify your IAM instance profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30  # Specify your desired root volume size
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName:
+        Ref: AutoScalingGroup
+      AdjustmentType: ChangeInCapacity
+      Cooldown: 300
+      ScalingAdjustment: 1
+      MetricAggregationType: Average
+      EstimatedInstanceWarmup: 300
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        TargetValue: !Ref MemoryThreshold

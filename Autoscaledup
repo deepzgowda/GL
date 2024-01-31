@@ -5,7 +5,7 @@ Parameters:
   ClusterName:
     Type: String
     Description: "Name of the ECS cluster"
-  
+
   DesiredCapacity:
     Type: Number
     Description: "Desired number of EC2 instances in the Auto Scaling Group"
@@ -25,6 +25,14 @@ Parameters:
     Type: Number
     Description: "Memory threshold percentage to trigger scaling (e.g., 80 for 80%)"
     Default: 80
+
+  VPCId:
+    Type: "AWS::EC2::VPC::Id"
+    Description: "VPC ID where ECS instances will be launched"
+
+  ECSSubnetIds:
+    Type: "List<AWS::EC2::Subnet::Id>"
+    Description: "Subnet IDs for ECS instances"
 
 Resources:
   ECSAutoScalingGroup:

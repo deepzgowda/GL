@@ -31,7 +31,9 @@ Resources:
           Value: MyInstance
           PropagateAtLaunch: 'true'
       VPCZoneIdentifier:
-        - subnet-0576e87bf6d0490d8
+        - subnet-0576e87bf6d0490d8  
+      AvailabilityZones:
+        - ap-south-1a
   LaunchConfig:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-ubuntu1-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-ubuntu1
+  template:
+    metadata:
+      labels:
+        app: hello-ubuntu1
+    spec:
+      containers:
+        - name: hello-ubuntu1-container
+          image: 626904670022.dkr.ecr.us-east-1.amazonaws.com/hello-ubuntu1:latest
+          ports:
+            - containerPort: 3000
